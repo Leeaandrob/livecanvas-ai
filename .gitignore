@@ -1,0 +1,52 @@
+# Dependencies
+node_modules
+.pnpm-store
+
+# Build outputs
+dist
+build
+.next
+.turbo
+.wrangler
+.vercel
+*.tsbuildinfo
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+*.sublime-*
+
+# OS
+.DS_Store
+Thumbs.db
+*.orig
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+.env.development
+.env.production
+
+# Testing
+coverage
+.nyc_output
+
+# Temporary files
+tmp
+temp
+*.tmp
+*.temp
+
+# Lock files (keep pnpm-lock.yaml)
+package-lock.json
+yarn.lock

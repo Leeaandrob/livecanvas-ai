@@ -1,0 +1,24 @@
+{
+  "name": "@live-canvas/worker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cloudflare Worker backend for LiveCanvas AI",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --ip 0.0.0.0 --port 8787",
+    "build": "wrangler deploy --dry-run",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --ext .ts"
+  },
+  "dependencies": {
+    "@live-canvas/ai-providers": "workspace:*",
+    "@live-canvas/protocols": "workspace:*",
+    "hono": "^4.4.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240614.0",
+    "typescript": "^5.4.0",
+    "wrangler": "^3.60.0"
+  }
+}
