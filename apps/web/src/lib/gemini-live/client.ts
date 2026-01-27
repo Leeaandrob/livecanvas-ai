@@ -271,11 +271,12 @@ export class GeminiLiveClient {
 
     // Build setup message matching the exact format from working examples
     // https://gist.github.com/quartzjer/9636066e96b4f904162df706210770e4
+    // responseModalities should be an array per Gemini Live API spec
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const setup: any = {
       model,
       generationConfig: {
-        responseModalities: "audio",
+        responseModalities: ["AUDIO"],
       },
     };
 
@@ -456,9 +457,13 @@ export class GeminiLiveClient {
 
     // Audio content
     if ("inlineData" in part) {
-      if (part.inlineData.mimeType.startsWith("audio/")) {
+      const { mimeType, data } = part.inlineData;
+      console.log("Gemini Live: Received audio data, mimeType:", mimeType, "base64 length:", data.length);
+
+      if (mimeType.startsWith("audio/")) {
         this.setState("speaking");
-        const audioData = this.base64ToArrayBuffer(part.inlineData.data);
+        const audioData = this.base64ToArrayBuffer(data);
+        console.log("Gemini Live: Decoded audio buffer size:", audioData.byteLength, "bytes");
         this.callbacks.onAudioData(audioData);
       }
     }

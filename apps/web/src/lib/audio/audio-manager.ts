@@ -220,9 +220,46 @@ export class AudioManager {
   /**
    * Queue audio for playback
    */
-  queueAudio(data: ArrayBuffer): void {
+  async queueAudio(data: ArrayBuffer): Promise<void> {
+    console.log("AudioManager: Queueing audio, size:", data.byteLength, "bytes");
+
+    // Initialize audio context if needed (for text-only mode where capture wasn't started)
+    if (!this.audioContext) {
+      console.log("AudioManager: No audio context, initializing for playback...");
+      await this.initializeForPlayback();
+    }
+
     this.playbackQueue.push(data);
+    console.log("AudioManager: Queue size:", this.playbackQueue.length, "isPlaying:", this.isPlaying);
     this.processPlaybackQueue();
+  }
+
+  /**
+   * Initialize audio context for playback only (no worklet needed)
+   */
+  private async initializeForPlayback(): Promise<void> {
+    if (this.audioContext) {
+      return;
+    }
+
+    try {
+      // Create audio context for playback
+      this.audioContext = new AudioContext({
+        sampleRate: this.playbackSampleRate,
+      });
+
+      // Resume if suspended (browser autoplay policy)
+      if (this.audioContext.state === "suspended") {
+        await this.audioContext.resume();
+      }
+
+      console.log("AudioManager: Initialized for playback, sample rate:", this.audioContext.sampleRate);
+    } catch (error) {
+      console.error("AudioManager: Failed to initialize for playback:", error);
+      this.callbacks.onError(
+        new Error(`Failed to initialize audio playback: ${error instanceof Error ? error.message : "Unknown error"}`)
+      );
+    }
   }
 
   /**
@@ -251,7 +288,13 @@ export class AudioManager {
    * Play audio buffer
    */
   private async playAudio(data: ArrayBuffer): Promise<void> {
+    // Ensure audio context exists
     if (!this.audioContext) {
+      await this.initializeForPlayback();
+    }
+
+    if (!this.audioContext) {
+      console.error("AudioManager: Cannot play audio - no audio context");
       return;
     }
 
@@ -281,8 +324,13 @@ export class AudioManager {
       sourceNode.buffer = audioBuffer;
       sourceNode.connect(this.audioContext.destination);
 
+      console.log("AudioManager: Playing audio buffer, duration:", audioBuffer.duration.toFixed(2), "s, sampleRate:", audioBuffer.sampleRate);
+
       return new Promise((resolve) => {
-        sourceNode.onended = () => resolve();
+        sourceNode.onended = () => {
+          console.log("AudioManager: Audio chunk finished playing");
+          resolve();
+        };
         sourceNode.start();
       });
     } catch (error) {
