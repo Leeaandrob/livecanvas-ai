@@ -1,12 +1,16 @@
 /**
  * MermaidBlock Component
  *
- * Renders a single Mermaid diagram block with drag support and error handling
+ * Renders a single Mermaid diagram block with drag and resize support
  */
 
 import { useEffect, useState, useCallback, useRef, MouseEvent } from "react";
-import type { MermaidBlock as MermaidBlockType, Position } from "@live-canvas/protocols";
+import type { MermaidBlock as MermaidBlockType } from "@live-canvas/protocols";
 import { renderMermaid } from "../lib/mermaid";
+
+// Minimum block dimensions
+const MIN_WIDTH = 150;
+const MIN_HEIGHT = 100;
 
 interface MermaidBlockProps {
   block: MermaidBlockType;
@@ -29,7 +33,9 @@ export function MermaidBlock({
   const [error, setError] = useState<string | null>(null);
   const [isFixing, setIsFixing] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [isResizing, setIsResizing] = useState(false);
   const dragStart = useRef<{ mouseX: number; mouseY: number; blockX: number; blockY: number } | null>(null);
+  const resizeStart = useRef<{ mouseX: number; mouseY: number; width: number; height: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Track if we need to update lastValidCode (separate from render effect)
@@ -164,6 +170,28 @@ export function MermaidBlock({
     [onSelect, block.position.x, block.position.y]
   );
 
+  // Handle mouse down for resizing
+  const handleResizeMouseDown = useCallback(
+    (e: MouseEvent) => {
+      if (e.button !== 0) return; // Only left click
+      e.preventDefault();
+      e.stopPropagation();
+
+      onSelect();
+
+      // Save starting positions and size for resize calculation
+      resizeStart.current = {
+        mouseX: e.clientX,
+        mouseY: e.clientY,
+        width: block.size.width,
+        height: block.size.height,
+      };
+
+      setIsResizing(true);
+    },
+    [onSelect, block.size.width, block.size.height]
+  );
+
   // Handle mouse move for dragging
   useEffect(() => {
     if (!isDragging || !dragStart.current) {
@@ -198,16 +226,57 @@ export function MermaidBlock({
     };
   }, [isDragging, onUpdate]);
 
+  // Handle mouse move for resizing
+  useEffect(() => {
+    if (!isResizing || !resizeStart.current) {
+      return;
+    }
+
+    const handleMouseMove = (e: globalThis.MouseEvent) => {
+      if (!resizeStart.current) return;
+
+      // Calculate delta from initial mouse position
+      const deltaX = e.clientX - resizeStart.current.mouseX;
+      const deltaY = e.clientY - resizeStart.current.mouseY;
+
+      // New size is initial size + delta, with minimum constraints
+      const width = Math.max(MIN_WIDTH, resizeStart.current.width + deltaX);
+      const height = Math.max(MIN_HEIGHT, resizeStart.current.height + deltaY);
+
+      onUpdate({ size: { width, height } });
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+      resizeStart.current = null;
+    };
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [isResizing, onUpdate]);
+
+  // Determine cursor style
+  const getCursor = () => {
+    if (isResizing) return "nwse-resize";
+    if (isDragging) return "grabbing";
+    return "grab";
+  };
+
   return (
     <div
       ref={containerRef}
-      className={`mermaid-block ${selected ? "selected" : ""}`}
+      className={`mermaid-block ${selected ? "selected" : ""} ${isResizing ? "resizing" : ""}`}
       style={{
         left: block.position.x,
         top: block.position.y,
         width: block.size.width,
         minHeight: block.size.height,
-        cursor: isDragging ? "grabbing" : "grab",
+        cursor: getCursor(),
       }}
       onMouseDown={handleMouseDown}
       onDoubleClick={(e) => {
@@ -234,6 +303,17 @@ export function MermaidBlock({
           Double-click to edit diagram
         </div>
       )}
+
+      {/* Resize handle - bottom right corner */}
+      <div
+        className="resize-handle"
+        onMouseDown={handleResizeMouseDown}
+        title="Drag to resize"
+      >
+        <svg viewBox="0 0 10 10" width="10" height="10">
+          <path d="M0 10 L10 0 M4 10 L10 4 M8 10 L10 8" stroke="currentColor" strokeWidth="1.5" fill="none" />
+        </svg>
+      </div>
     </div>
   );
 }
