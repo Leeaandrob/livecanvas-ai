@@ -1,33 +1,23 @@
 /**
  * Board WebSocket Route
  *
- * Handles WebSocket upgrade requests and forwards to BoardRoom Durable Object
+ * Handles WebSocket upgrade requests using y-durableobjects yRoute helper
  */
 
 import { Hono } from "hono";
+import { yRoute } from "y-durableobjects";
 import type { Env } from "../index";
 
 export const boardRoute = new Hono<{ Bindings: Env }>();
 
 /**
- * WebSocket upgrade endpoint for board collaboration
- * GET /board/:id
+ * WebSocket endpoint for board collaboration using y-durableobjects
+ * GET /board/:id - WebSocket upgrade handled by yRoute
  */
-boardRoute.get("/:id", async (c) => {
-  const boardId = c.req.param("id");
-
-  if (!boardId) {
-    return c.json({ error: "Board ID is required" }, 400);
-  }
-
-  // Get the Durable Object instance for this board
-  const id = c.env.BOARD_ROOM.idFromName(boardId);
-  const room = c.env.BOARD_ROOM.get(id);
-
-  // Forward the request to the Durable Object
-  // It will handle the WebSocket upgrade
-  return room.fetch(c.req.raw);
-});
+boardRoute.route(
+  "/",
+  yRoute<{ Bindings: Env }>((env) => env.BOARD_ROOM)
+);
 
 /**
  * Get board info (non-WebSocket)
