@@ -18,7 +18,7 @@ export function createWebSocketUrl(): string {
   // Use env var if set, otherwise use current host with worker port
   const workerHost = import.meta.env.VITE_WORKER_HOST;
   const host = import.meta.env.MODE === "production"
-    ? (workerHost || "live-canvas-worker.your-domain.workers.dev")
+    ? (workerHost || "live-canvas-worker.videostreaminginc.workers.dev")
     : (workerHost || `${window.location.hostname}:8787`);
 
   // Return base URL - y-websocket will append the room name
@@ -31,7 +31,7 @@ export function getApiBaseUrl(): string {
   if (import.meta.env.MODE === "production") {
     return workerHost
       ? `https://${workerHost}`
-      : "https://live-canvas-worker.your-domain.workers.dev";
+      : "https://live-canvas-worker.videostreaminginc.workers.dev";
   }
 
   // In development, use proxy (empty string) or direct URL

@@ -1,0 +1,16 @@
+# Cloudflare Pages Configuration
+# This file configures the Pages deployment
+
+name = "livecanvas-ai"
+pages_build_output_dir = "apps/web/dist"
+
+# Build settings
+[build]
+command = "pnpm build"
+
+# Environment variables for production
+[vars]
+ENVIRONMENT = "production"
+
+# Compatibility settings
+compatibility_date = "2024-01-01"

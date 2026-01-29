@@ -40,6 +40,7 @@ app.use(
       if (origin.includes("127.0.0.1")) return origin;
       if (origin.match(/^https?:\/\/192\.168\./)) return origin;
       if (origin.match(/^https?:\/\/10\./)) return origin;
+      if (origin.includes("livecanvas-ai.pages.dev")) return origin;
       if (origin.includes("live-canvas.pages.dev")) return origin;
       // Reject unknown origins
       return null;
