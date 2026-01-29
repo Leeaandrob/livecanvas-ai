@@ -42,6 +42,7 @@ app.use(
       if (origin.match(/^https?:\/\/10\./)) return origin;
       if (origin.includes("livecanvas-ai.pages.dev")) return origin;
       if (origin.includes("live-canvas.pages.dev")) return origin;
+      if (origin.includes("leandrobarbosa.dev")) return origin;
       // Reject unknown origins
       return null;
     },
