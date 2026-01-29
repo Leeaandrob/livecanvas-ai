@@ -1,0 +1,38 @@
+LiveCanvas AI
+Copyright 2024-2026 LiveCanvas AI Contributors
+
+This product includes software developed at LiveCanvas AI
+(https://github.com/leeaandrob/live-canvas-ai).
+
+Licensed under the Apache License, Version 2.0.
+
+---
+
+This project uses the following open source components:
+
+React - MIT License
+Copyright (c) Meta Platforms, Inc. and affiliates.
+
+Mermaid - MIT License
+Copyright (c) 2014-present Knut Sveidqvist
+
+Yjs - MIT License
+Copyright (c) 2015-present Kevin Jahns
+
+Hono - MIT License
+Copyright (c) 2021-present Yusuke Wada
+
+TLDraw - Apache License 2.0
+Copyright (c) 2020-present tldraw GB Ltd.
+
+Cloudflare Workers SDK - Apache License 2.0 / MIT License
+Copyright (c) 2019-present Cloudflare, Inc.
+
+OpenAI Node.js SDK - Apache License 2.0
+Copyright (c) 2020 OpenAI
+
+Anthropic SDK - MIT License
+Copyright (c) 2023 Anthropic
+
+Google AI SDK - Apache License 2.0
+Copyright (c) 2023 Google LLC

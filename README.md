@@ -41,8 +41,8 @@ A real-time collaborative diagramming platform with voice control and natural la
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/live-canvas.git
-cd live-canvas
+git clone https://github.com/leeaandrob/live-canvas-ai.git
+cd live-canvas-ai
 
 # Install dependencies
 pnpm install

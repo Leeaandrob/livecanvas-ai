@@ -2,7 +2,27 @@
   "name": "live-canvas-ai",
   "version": "1.0.0",
   "private": true,
+  "license": "Apache-2.0",
   "description": "Real-time collaborative canvas with AI-powered Mermaid diagrams",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/leeaandrob/live-canvas-ai.git"
+  },
+  "homepage": "https://github.com/leeaandrob/live-canvas-ai",
+  "bugs": {
+    "url": "https://github.com/leeaandrob/live-canvas-ai/issues"
+  },
+  "author": "LiveCanvas AI Contributors",
+  "keywords": [
+    "diagram",
+    "mermaid",
+    "collaboration",
+    "real-time",
+    "ai",
+    "architecture",
+    "canvas",
+    "whiteboard"
+  ],
   "scripts": {
     "dev": "turbo dev",
     "build": "turbo build",
@@ -15,6 +35,7 @@
     "@typescript-eslint/parser": "^7.0.0",
     "eslint": "^8.57.0",
     "prettier": "^3.2.0",
+    "tsx": "^4.21.0",
     "turbo": "^2.0.0",
     "typescript": "^5.4.0"
   },

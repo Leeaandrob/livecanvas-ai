@@ -5,7 +5,26 @@
  */
 
 // Board types
-export type { Board, MermaidBlock, Position, Size } from "./board";
+export type {
+  Board,
+  BaseBlock,
+  MermaidBlock,
+  StickyNoteBlock,
+  TextBlock,
+  CanvasBlock,
+  Position,
+  Size,
+  StickyColor,
+  TextFontSize,
+} from "./board";
+
+export {
+  isMermaidBlock,
+  isStickyNoteBlock,
+  isTextBlock,
+  STICKY_COLORS,
+  DEFAULT_BLOCK_SIZES,
+} from "./board";
 
 // Event types
 export type {
@@ -66,3 +85,43 @@ export type {
   ToolResult,
   AIVoiceState,
 } from "./gemini-live";
+
+// Design Session types
+export type {
+  EntityType,
+  RelationType,
+  C4Level,
+  DiagramType,
+  SessionPhase,
+  DecisionStatus,
+  ValidationSeverity,
+  ValidationCategory,
+  QualityAttribute,
+  Constraint,
+  DataFlowSpec,
+  EntityInterface,
+  DependencyRef,
+  SemanticEntity,
+  SemanticRelationship,
+  Invariant,
+  SemanticDiagram,
+  DecisionAlternative,
+  ArchitectureDecision,
+  ValidationIssue,
+  ValidationResult,
+  ConversationTurn,
+  Requirements,
+  DesignSession,
+  PatternVariable,
+  PatternValidation,
+  ArchitecturePattern,
+  UserIntent,
+  DetectedIntent,
+} from "./design-session";
+
+export {
+  createDesignSession,
+  createSemanticEntity,
+  createArchitectureDecision,
+  createConversationTurn,
+} from "./design-session";

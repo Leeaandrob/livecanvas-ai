@@ -12,6 +12,7 @@
     "lint": "eslint src --ext .ts,.tsx"
   },
   "dependencies": {
+    "@live-canvas/ai-providers": "workspace:*",
     "@live-canvas/protocols": "workspace:*",
     "mermaid": "^10.9.0",
     "nanoid": "^5.0.7",

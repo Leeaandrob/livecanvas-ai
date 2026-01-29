@@ -1,24 +1,36 @@
 /**
  * Canvas Component
  *
- * Main canvas container for Mermaid diagram blocks
+ * Main canvas container for all block types (diagrams, sticky notes, text)
  * Supports pan (drag to move) like Miro/Figma
  */
 
 import { useCallback, useRef, useState, useEffect, MouseEvent } from "react";
-import type { MermaidBlock as MermaidBlockType, Position } from "@live-canvas/protocols";
+import type {
+  CanvasBlock,
+  MermaidBlock as MermaidBlockType,
+  StickyNoteBlock,
+  Position,
+  StickyColor,
+} from "@live-canvas/protocols";
+import { isMermaidBlock, isStickyNoteBlock } from "@live-canvas/protocols";
 import { MermaidBlock } from "./MermaidBlock";
+import { StickyNote } from "./StickyNote";
 import { AICursor } from "./AICursor";
 import { Presence } from "./Presence";
 import type { UserPresence } from "@live-canvas/protocols";
 
+type BlockType = 'mermaid' | 'sticky' | 'text';
+
 interface CanvasProps {
-  blocks: MermaidBlockType[];
+  blocks: CanvasBlock[];
   selectedBlockId: string | null;
   onSelectBlock: (id: string | null) => void;
-  onUpdateBlock: (id: string, updates: Partial<MermaidBlockType>) => void;
+  onUpdateBlock: (id: string, updates: Partial<CanvasBlock>) => void;
+  onDeleteBlock: (id: string) => void;
   onEditBlock: (id: string) => void;
   onAddBlock: (position?: Position) => void;
+  onAddStickyNote: (color?: StickyColor, position?: Position) => void;
   onFixSyntax: (code: string) => Promise<string | null>;
   users: UserPresence[];
   aiCursor: { position: Position | null; state: "thinking" | "idle" };
@@ -30,8 +42,10 @@ export function Canvas({
   selectedBlockId,
   onSelectBlock,
   onUpdateBlock,
+  onDeleteBlock,
   onEditBlock,
   onAddBlock,
+  onAddStickyNote,
   onFixSyntax,
   users,
   aiCursor,
@@ -44,6 +58,11 @@ export function Canvas({
   const [isPanning, setIsPanning] = useState(false);
   const [isSpacePressed, setIsSpacePressed] = useState(false);
   const panStart = useRef<{ x: number; y: number; scrollX: number; scrollY: number } | null>(null);
+
+  // Block type selector menu state
+  const [showBlockMenu, setShowBlockMenu] = useState(false);
+  const [menuPosition, setMenuPosition] = useState<Position>({ x: 0, y: 0 });
+  const [pendingBlockPosition, setPendingBlockPosition] = useState<Position | null>(null);
 
   // Handle spacebar for pan mode
   useEffect(() => {
@@ -58,6 +77,11 @@ export function Canvas({
       if (e.code === "Space" && !e.repeat && !isInputField) {
         e.preventDefault();
         setIsSpacePressed(true);
+      }
+
+      // Close menu on Escape
+      if (e.code === "Escape") {
+        setShowBlockMenu(false);
       }
     };
 
@@ -81,6 +105,11 @@ export function Canvas({
   // Handle mouse down for panning
   const handleMouseDown = useCallback(
     (e: MouseEvent) => {
+      // Close menu if clicking outside
+      if (showBlockMenu) {
+        setShowBlockMenu(false);
+      }
+
       // Middle mouse button (button 1) or Space + left click
       if (e.button === 1 || (isSpacePressed && e.button === 0)) {
         e.preventDefault();
@@ -93,7 +122,7 @@ export function Canvas({
         };
       }
     },
-    [isSpacePressed]
+    [isSpacePressed, showBlockMenu]
   );
 
   // Handle mouse move for panning
@@ -139,7 +168,7 @@ export function Canvas({
     [onSelectBlock, isPanning, isSpacePressed]
   );
 
-  // Handle double-click to add block - only if not in pan mode
+  // Handle double-click to show block type menu
   const handleDoubleClick = useCallback(
     (e: MouseEvent) => {
       if (isSpacePressed) return;
@@ -147,13 +176,48 @@ export function Canvas({
 
       const rect = canvasRef.current?.getBoundingClientRect();
       if (rect) {
-        onAddBlock({
+        const canvasPos = {
           x: e.clientX - rect.left,
           y: e.clientY - rect.top,
-        });
+        };
+
+        setMenuPosition({ x: e.clientX, y: e.clientY });
+        setPendingBlockPosition(canvasPos);
+        setShowBlockMenu(true);
       }
     },
-    [onAddBlock, isSpacePressed]
+    [isSpacePressed]
+  );
+
+  // Handle block type selection from menu
+  const handleSelectBlockType = useCallback(
+    (type: BlockType) => {
+      if (!pendingBlockPosition) return;
+
+      // Account for scroll position
+      const scrollX = wrapperRef.current?.scrollLeft || 0;
+      const scrollY = wrapperRef.current?.scrollTop || 0;
+      const actualPosition = {
+        x: pendingBlockPosition.x + scrollX,
+        y: pendingBlockPosition.y + scrollY,
+      };
+
+      switch (type) {
+        case 'mermaid':
+          onAddBlock(actualPosition);
+          break;
+        case 'sticky':
+          onAddStickyNote('yellow', actualPosition);
+          break;
+        case 'text':
+          // TODO: Implement text block
+          break;
+      }
+
+      setShowBlockMenu(false);
+      setPendingBlockPosition(null);
+    },
+    [pendingBlockPosition, onAddBlock, onAddStickyNote]
   );
 
   const handleMouseLeave = useCallback(() => {
@@ -170,6 +234,42 @@ export function Canvas({
       e.preventDefault();
     }
   }, []);
+
+  // Render a block based on its type
+  const renderBlock = useCallback(
+    (block: CanvasBlock) => {
+      if (isMermaidBlock(block)) {
+        return (
+          <MermaidBlock
+            key={block.id}
+            block={block}
+            selected={block.id === selectedBlockId}
+            onSelect={() => onSelectBlock(block.id)}
+            onUpdate={(updates) => onUpdateBlock(block.id, updates as Partial<MermaidBlockType>)}
+            onDoubleClick={() => onEditBlock(block.id)}
+            onFixSyntax={onFixSyntax}
+          />
+        );
+      }
+
+      if (isStickyNoteBlock(block)) {
+        return (
+          <StickyNote
+            key={block.id}
+            block={block}
+            selected={block.id === selectedBlockId}
+            onSelect={() => onSelectBlock(block.id)}
+            onUpdate={(updates) => onUpdateBlock(block.id, updates as Partial<StickyNoteBlock>)}
+            onDelete={() => onDeleteBlock(block.id)}
+          />
+        );
+      }
+
+      // TODO: Handle TextBlock
+      return null;
+    },
+    [selectedBlockId, onSelectBlock, onUpdateBlock, onEditBlock, onDeleteBlock, onFixSyntax]
+  );
 
   // Cursor style based on pan state
   const cursorStyle = isPanning
@@ -197,17 +297,7 @@ export function Canvas({
         style={{ cursor: cursorStyle }}
       >
         {/* Render blocks */}
-        {blocks.map((block) => (
-          <MermaidBlock
-            key={block.id}
-            block={block}
-            selected={block.id === selectedBlockId}
-            onSelect={() => onSelectBlock(block.id)}
-            onUpdate={(updates) => onUpdateBlock(block.id, updates)}
-            onDoubleClick={() => onEditBlock(block.id)}
-            onFixSyntax={onFixSyntax}
-          />
-        ))}
+        {blocks.map(renderBlock)}
 
         {/* Render user cursors */}
         <Presence users={users} />
@@ -227,13 +317,50 @@ export function Canvas({
               color: "var(--color-text-secondary)",
             }}
           >
-            <p>Double-click anywhere to add a diagram</p>
+            <p>Double-click anywhere to add a block</p>
             <p style={{ fontSize: "13px", marginTop: "8px" }}>
-              Or use the toolbar to add a block
+              Choose from diagrams, sticky notes, or text
             </p>
           </div>
         )}
       </div>
+
+      {/* Block type selector menu */}
+      {showBlockMenu && (
+        <div
+          className="block-type-menu"
+          style={{
+            position: "fixed",
+            left: menuPosition.x,
+            top: menuPosition.y,
+          }}
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            className="block-type-option"
+            onClick={() => handleSelectBlockType('mermaid')}
+          >
+            <span className="block-type-icon">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                <path d="M22 11V3h-7v3H9V3H2v8h7V8h2v10h4v3h7v-8h-7v3h-2V8h2v3h7zM7 9H4V5h3v4zm10 6h3v4h-3v-4zm0-10h3v4h-3V5z" />
+              </svg>
+            </span>
+            <span className="block-type-label">Diagram</span>
+          </button>
+          <button
+            className="block-type-option sticky"
+            onClick={() => handleSelectBlockType('sticky')}
+          >
+            <span className="block-type-icon">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                <path d="M19 3H4.99c-1.11 0-1.98.89-1.98 2L3 19c0 1.1.88 2 1.99 2H15l6-6V5c0-1.11-.9-2-2-2zm-7 8H7v-2h5v2zm5-4H7V5h10v2z" />
+              </svg>
+            </span>
+            <span className="block-type-label">Sticky Note</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 }

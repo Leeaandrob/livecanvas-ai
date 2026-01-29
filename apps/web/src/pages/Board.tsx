@@ -6,7 +6,14 @@
 
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { useParams } from "react-router-dom";
-import type { MermaidBlock, Position, ToolExecutionContext } from "@live-canvas/protocols";
+import type {
+  CanvasBlock,
+  MermaidBlock,
+  Position,
+  StickyColor,
+  ToolExecutionContext,
+} from "@live-canvas/protocols";
+import { isMermaidBlock } from "@live-canvas/protocols";
 
 import { useYjs } from "../hooks/useYjs";
 import { useBoard } from "../hooks/useBoard";
@@ -37,7 +44,7 @@ export function Board() {
 
   // Yjs and collaboration
   const { doc, provider, connected } = useYjs(boardId || "default");
-  const { blocks, addBlock, updateBlock, deleteBlock, getBlock } = useBoard(doc);
+  const { blocks, addBlock, addStickyNote, updateBlock, deleteBlock, getBlock } = useBoard(doc);
   const { users, localUser, aiCursor, updateCursor, broadcastVoiceActivity } = useAwareness(provider);
 
   // AI features
@@ -63,7 +70,7 @@ export function Board() {
   const selectedBlock = selectedBlockId ? getBlock(selectedBlockId) : null;
   const editingBlock = editingBlockId ? getBlock(editingBlockId) : null;
 
-  // Tool execution context for Gemini Live
+  // Tool execution context for Gemini Live (only works with Mermaid blocks)
   const toolContext: ToolExecutionContext = useMemo(
     () => ({
       addBlock: (code?: string) => {
@@ -76,9 +83,15 @@ export function Board() {
       deleteBlock,
       getBlock: (id: string) => {
         const block = getBlock(id);
-        return block ? { id: block.id, code: block.code } : undefined;
+        if (block && isMermaidBlock(block)) {
+          return { id: block.id, code: block.code };
+        }
+        return undefined;
       },
-      getAllBlocks: () => blocks.map((b) => ({ id: b.id, code: b.code })),
+      getAllBlocks: () =>
+        blocks
+          .filter(isMermaidBlock)
+          .map((b) => ({ id: b.id, code: b.code })),
       selectBlock: setSelectedBlockId,
       selectedBlockId,
     }),
@@ -124,6 +137,15 @@ export function Board() {
     [addBlock]
   );
 
+  // Handle adding a sticky note
+  const handleAddStickyNote = useCallback(
+    (color?: StickyColor, position?: Position) => {
+      const block = addStickyNote("", color, position);
+      setSelectedBlockId(block.id);
+    },
+    [addStickyNote]
+  );
+
   // Handle adding block with specific code (from AI generation)
   const handleAddBlockWithCode = useCallback(
     (code: string) => {
@@ -133,29 +155,29 @@ export function Board() {
     [addBlock]
   );
 
-  // Handle analyzing selected block
+  // Handle analyzing selected block (only for Mermaid blocks)
   const handleAnalyze = useCallback(() => {
-    if (selectedBlock) {
+    if (selectedBlock && isMermaidBlock(selectedBlock)) {
       analyze(selectedBlock.code, boardId);
     }
   }, [selectedBlock, analyze, boardId]);
 
-  // Handle refactoring selected block
+  // Handle refactoring selected block (only for Mermaid blocks)
   const handleRefactor = useCallback(() => {
-    if (selectedBlock) {
+    if (selectedBlock && isMermaidBlock(selectedBlock)) {
       refactor(selectedBlock.code, boardId);
     }
   }, [selectedBlock, refactor, boardId]);
 
-  // Handle applying AI-suggested changes
+  // Handle applying AI-suggested changes (only for Mermaid blocks)
   const handleApplyPatch = useCallback(
     (mermaid: string) => {
-      if (selectedBlockId) {
+      if (selectedBlockId && selectedBlock && isMermaidBlock(selectedBlock)) {
         updateBlock(selectedBlockId, { code: mermaid });
         clearResponse();
       }
     },
-    [selectedBlockId, updateBlock, clearResponse]
+    [selectedBlockId, selectedBlock, updateBlock, clearResponse]
   );
 
   // Handle fix syntax
@@ -200,7 +222,7 @@ export function Board() {
 
   // Handle block update
   const handleUpdateBlock = useCallback(
-    (id: string, updates: Partial<MermaidBlock>) => {
+    (id: string, updates: Partial<CanvasBlock>) => {
       updateBlock(id, updates);
     },
     [updateBlock]
@@ -223,7 +245,7 @@ export function Board() {
         <Toolbar
           boardId={boardId || ""}
           connected={connected}
-          hasSelectedBlock={!!selectedBlock}
+          hasSelectedBlock={!!(selectedBlock && isMermaidBlock(selectedBlock))}
           isLoading={aiLoading}
           onAddBlock={() => handleAddBlock()}
           onAnalyze={handleAnalyze}
@@ -250,8 +272,10 @@ export function Board() {
           selectedBlockId={selectedBlockId}
           onSelectBlock={setSelectedBlockId}
           onUpdateBlock={handleUpdateBlock}
+          onDeleteBlock={deleteBlock}
           onEditBlock={setEditingBlockId}
           onAddBlock={handleAddBlock}
+          onAddStickyNote={handleAddStickyNote}
           onFixSyntax={handleFixSyntax}
           users={users}
           aiCursor={aiCursor}
@@ -264,13 +288,13 @@ export function Board() {
             response={aiResponse}
             error={aiError}
             isLoading={aiLoading}
-            onApplyPatch={selectedBlock ? handleApplyPatch : undefined}
+            onApplyPatch={selectedBlock && isMermaidBlock(selectedBlock) ? handleApplyPatch : undefined}
             onClose={clearResponse}
           />
         )}
 
-        {/* Block Editor overlay */}
-        {editingBlock && (
+        {/* Block Editor overlay (only for Mermaid blocks) */}
+        {editingBlock && isMermaidBlock(editingBlock) && (
           <BlockEditor
             code={editingBlock.code}
             position={{
@@ -324,7 +348,7 @@ export function Board() {
         ) : (
           <ChatPanel
             isLoading={aiLoading}
-            selectedBlock={selectedBlock || null}
+            selectedBlock={selectedBlock && isMermaidBlock(selectedBlock) ? selectedBlock : null}
             onGenerate={handleGenerate}
             onModify={handleModify}
             onAddBlock={handleAddBlockWithCode}

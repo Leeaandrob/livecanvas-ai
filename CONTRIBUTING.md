@@ -10,7 +10,7 @@ By participating in this project, you agree to maintain a respectful and inclusi
 
 ### Reporting Bugs
 
-1. Check if the bug has already been reported in [Issues](https://github.com/yourusername/live-canvas/issues)
+1. Check if the bug has already been reported in [Issues](https://github.com/leeaandrob/live-canvas-ai/issues)
 2. If not, create a new issue with:
    - Clear, descriptive title
    - Steps to reproduce

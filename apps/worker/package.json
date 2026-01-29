@@ -14,7 +14,8 @@
   "dependencies": {
     "@live-canvas/ai-providers": "workspace:*",
     "@live-canvas/protocols": "workspace:*",
-    "hono": "^4.4.0"
+    "hono": "^4.4.0",
+    "y-durableobjects": "^1.0.5"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20240614.0",

@@ -19,6 +19,7 @@ export default defineConfig(({ mode }) => {
     server: {
       host: "0.0.0.0",
       port: 5173,
+      allowedHosts: [".trycloudflare.com", ".ngrok-free.app", ".ngrok.io"],
       proxy: {
         "/api": {
           target: env.VITE_WORKER_URL || "http://localhost:8787",

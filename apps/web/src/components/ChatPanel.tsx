@@ -3,20 +3,28 @@
  *
  * Side panel for AI commands and chat history
  * Supports both generating new diagrams and modifying selected diagrams
+ * Integrated with Pattern Library for intelligent suggestions
  */
 
-import { useState, useCallback, KeyboardEvent, useRef, useEffect } from "react";
+import { useState, useCallback, KeyboardEvent, useRef, useEffect, useMemo } from "react";
 import type { ChatMessage } from "../types";
 import type { MermaidBlock } from "@live-canvas/protocols";
 import { nanoid } from "nanoid";
+import {
+  analyzePromptForPatterns,
+  enhancePromptWithPatterns,
+  formatPatternSuggestionsForChat,
+  type PatternSuggestion,
+} from "../lib/pattern-assistant";
 
 interface ChatPanelProps {
   isLoading: boolean;
   selectedBlock: MermaidBlock | null;
-  onGenerate: (prompt: string) => Promise<string | null>;
+  onGenerate: (prompt: string, enhancedPrompt?: string) => Promise<string | null>;
   onModify: (mermaid: string, instructions: string) => Promise<string | null>;
   onAddBlock: (code: string) => void;
   onUpdateBlock: (id: string, code: string) => void;
+  usePatternEnhancement?: boolean;
 }
 
 export function ChatPanel({
@@ -26,10 +34,20 @@ export function ChatPanel({
   onModify,
   onAddBlock,
   onUpdateBlock,
+  usePatternEnhancement = true,
 }: ChatPanelProps) {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [showPatternSuggestions, setShowPatternSuggestions] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Analyze input for pattern suggestions (debounced)
+  const patternSuggestions = useMemo(() => {
+    if (!usePatternEnhancement || input.length < 10 || selectedBlock) {
+      return [];
+    }
+    return analyzePromptForPatterns(input);
+  }, [input, usePatternEnhancement, selectedBlock]);
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -79,14 +97,35 @@ export function ChatPanel({
         setMessages((prev) => [...prev, errorMessage]);
       }
     } else {
-      // Generate new diagram
-      result = await onGenerate(prompt);
+      // Generate new diagram with pattern enhancement
+      let enhancedPrompt: string | undefined;
+
+      if (usePatternEnhancement && patternSuggestions.length > 0) {
+        const enhanced = enhancePromptWithPatterns(prompt);
+        enhancedPrompt = enhanced.enhancedPrompt;
+
+        // Show pattern suggestions in chat
+        const highRelevance = patternSuggestions.filter(s => s.relevance === "high");
+        if (highRelevance.length > 0) {
+          const patternMessage: ChatMessage = {
+            id: nanoid(),
+            role: "assistant",
+            content: formatPatternSuggestionsForChat(patternSuggestions),
+            timestamp: Date.now(),
+          };
+          setMessages((prev) => [...prev, patternMessage]);
+        }
+      }
+
+      result = await onGenerate(prompt, enhancedPrompt);
 
       if (result) {
         const assistantMessage: ChatMessage = {
           id: nanoid(),
           role: "assistant",
-          content: "Generated diagram from your description.",
+          content: patternSuggestions.length > 0
+            ? "Generated diagram using the detected architecture patterns."
+            : "Generated diagram from your description.",
           timestamp: Date.now(),
         };
         setMessages((prev) => [...prev, assistantMessage]);
@@ -103,7 +142,7 @@ export function ChatPanel({
         setMessages((prev) => [...prev, errorMessage]);
       }
     }
-  }, [input, isLoading, selectedBlock, onGenerate, onModify, onAddBlock, onUpdateBlock]);
+  }, [input, isLoading, selectedBlock, onGenerate, onModify, onAddBlock, onUpdateBlock, usePatternEnhancement, patternSuggestions]);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -179,6 +218,29 @@ export function ChatPanel({
       </div>
 
       <div className="chat-input-container">
+        {/* Pattern suggestions preview */}
+        {patternSuggestions.length > 0 && input.length >= 10 && (
+          <div className="pattern-suggestions-preview">
+            <span className="pattern-label">🏗️ Patterns detected:</span>
+            <div className="pattern-tags">
+              {patternSuggestions
+                .filter(s => s.relevance === "high")
+                .slice(0, 3)
+                .map(s => (
+                  <span key={s.pattern.id} className="pattern-tag">
+                    {s.pattern.name}
+                  </span>
+                ))}
+              {patternSuggestions.filter(s => s.relevance === "high").length === 0 &&
+                patternSuggestions.slice(0, 2).map(s => (
+                  <span key={s.pattern.id} className="pattern-tag pattern-tag-secondary">
+                    {s.pattern.name}
+                  </span>
+                ))}
+            </div>
+          </div>
+        )}
+
         <textarea
           className="chat-input"
           placeholder={placeholder}

@@ -1,15 +1,20 @@
 /**
  * BoardRoom Durable Object
  *
- * Manages real-time collaboration using WebSocket Hibernation API.
- * Handles Yjs document sync and AI cursor state broadcasting.
+ * Manages real-time collaboration using y-durableobjects for Yjs persistence.
+ * Handles Yjs document sync with automatic persistence and AI cursor state broadcasting.
  */
 
 import type { Position } from "@live-canvas/protocols";
-import { DurableObject } from "cloudflare:workers";
+import { YDurableObjects } from "y-durableobjects";
+import type { Env } from "hono";
 
-interface Env {
-  BOARD_ROOM: DurableObjectNamespace;
+interface WorkerEnv extends Env {
+  Bindings: {
+    BOARD_ROOM: DurableObjectNamespace;
+    DB?: D1Database;
+    KV?: KVNamespace;
+  };
 }
 
 interface AICursorState {
@@ -17,16 +22,19 @@ interface AICursorState {
   state: "thinking" | "idle";
 }
 
-interface SessionData {
-  id: string;
-  userId?: string;
-}
-
-export class BoardRoom extends DurableObject<Env> {
+export class BoardRoom extends YDurableObjects<WorkerEnv> {
   private aiCursorState: AICursorState = {
     position: null,
     state: "idle",
   };
+
+  /**
+   * Called when the Durable Object is instantiated
+   */
+  protected async onStart(): Promise<void> {
+    await super.onStart();
+    // Additional initialization if needed
+  }
 
   /**
    * Handle HTTP requests (WebSocket upgrade and RPC)
@@ -53,36 +61,31 @@ export class BoardRoom extends DurableObject<Env> {
       }
     }
 
-    // Handle WebSocket upgrade
-    const upgradeHeader = request.headers.get("Upgrade");
-    if (upgradeHeader !== "websocket") {
-      return new Response("Expected WebSocket", { status: 426 });
+    // Handle RPC to get Yjs document state
+    if (url.pathname.endsWith("/rpc/get-doc") && request.method === "GET") {
+      try {
+        const docState = await this.getYDoc();
+        return new Response(docState, {
+          headers: { "Content-Type": "application/octet-stream" },
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ error: "Failed to get document" }), {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
     }
 
-    // Create WebSocket pair
-    const pair = new WebSocketPair();
-    const [client, server] = Object.values(pair);
-
-    // Generate session ID
-    const sessionId = crypto.randomUUID();
-    const sessionData: SessionData = { id: sessionId };
-
-    // Accept WebSocket with hibernation
-    this.ctx.acceptWebSocket(server, [sessionId]);
-
-    // Serialize session data for hibernation
-    server.serializeAttachment(sessionData);
-
-    return new Response(null, {
-      status: 101,
-      webSocket: client,
-    });
+    // Let parent class handle WebSocket upgrade for Yjs sync
+    return super.fetch(request);
   }
 
   /**
-   * Handle incoming WebSocket messages (hibernation-safe)
+   * Handle incoming WebSocket messages
+   * Extends parent to add AI cursor and voice activity support
    */
   async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
+    // Handle custom JSON messages first
     if (typeof message === "string") {
       try {
         const parsed = JSON.parse(message);
@@ -93,7 +96,17 @@ export class BoardRoom extends DurableObject<Env> {
             position: parsed.position,
             state: parsed.state,
           };
-          this.broadcastAICursor(ws);
+          this.broadcastToOthers(ws, JSON.stringify({
+            type: "ai-cursor",
+            position: this.aiCursorState.position,
+            state: this.aiCursorState.state,
+          }));
+          return;
+        }
+
+        // Handle AI voice activity
+        if (parsed.type === "ai-voice-activity") {
+          this.broadcastToOthers(ws, message);
           return;
         }
 
@@ -102,33 +115,28 @@ export class BoardRoom extends DurableObject<Env> {
           ws.send(JSON.stringify({ type: "pong", timestamp: Date.now() }));
           return;
         }
-
-        // Broadcast other messages to all clients (for Yjs sync)
-        this.broadcast(message, ws);
       } catch {
-        // Not JSON, treat as binary-like data (Yjs sync)
-        this.broadcast(message, ws);
+        // Not JSON, let parent handle as Yjs sync data
       }
-    } else {
-      // Binary message (Yjs sync data)
-      this.broadcast(message, ws);
     }
+
+    // Let parent handle Yjs sync (binary messages and awareness)
+    await super.webSocketMessage(ws, message);
   }
 
   /**
    * Handle WebSocket close
    */
   async webSocketClose(ws: WebSocket): Promise<void> {
-    // Get session data
-    const sessionData = ws.deserializeAttachment() as SessionData | null;
+    await super.webSocketClose(ws);
 
-    // Check if any clients remain
-    const clients = this.ctx.getWebSockets();
+    // Schedule cleanup alarm if no clients remain
+    const clients = this.state.getWebSockets();
     if (clients.length === 0) {
-      // Schedule cleanup alarm for 1 hour from now
-      const alarm = await this.ctx.storage.getAlarm();
+      const alarm = await this.state.storage.getAlarm();
       if (!alarm) {
-        await this.ctx.storage.setAlarm(Date.now() + 60 * 60 * 1000);
+        // Cleanup after 24 hours of inactivity
+        await this.state.storage.setAlarm(Date.now() + 24 * 60 * 60 * 1000);
       }
     }
   }
@@ -136,27 +144,28 @@ export class BoardRoom extends DurableObject<Env> {
   /**
    * Handle WebSocket error
    */
-  async webSocketError(ws: WebSocket, error: unknown): Promise<void> {
-    console.error("WebSocket error:", error);
+  async webSocketError(ws: WebSocket): Promise<void> {
+    await super.webSocketError(ws);
+    console.error("WebSocket error in BoardRoom");
   }
 
   /**
    * Handle alarm for cleanup
    */
   async alarm(): Promise<void> {
-    const clients = this.ctx.getWebSockets();
+    const clients = this.state.getWebSockets();
 
-    // Only log if no active connections
     if (clients.length === 0) {
-      console.warn("Board inactive, cleanup skipped for MVP");
+      // No active connections - could clean up old data here
+      console.log("Board inactive for 24h, data preserved in storage");
     }
   }
 
   /**
    * Broadcast message to all connected clients except sender
    */
-  private broadcast(message: string | ArrayBuffer, sender?: WebSocket): void {
-    const clients = this.ctx.getWebSockets();
+  private broadcastToOthers(sender: WebSocket, message: string | ArrayBuffer): void {
+    const clients = this.state.getWebSockets();
 
     for (const client of clients) {
       if (client !== sender && client.readyState === WebSocket.READY_STATE_OPEN) {
@@ -170,16 +179,20 @@ export class BoardRoom extends DurableObject<Env> {
   }
 
   /**
-   * Broadcast AI cursor state to all connected clients except sender
+   * Broadcast to all connected clients
    */
-  private broadcastAICursor(sender?: WebSocket): void {
-    const message = JSON.stringify({
-      type: "ai-cursor",
-      position: this.aiCursorState.position,
-      state: this.aiCursorState.state,
-    });
+  private broadcastToAll(message: string | ArrayBuffer): void {
+    const clients = this.state.getWebSockets();
 
-    this.broadcast(message, sender);
+    for (const client of clients) {
+      if (client.readyState === WebSocket.READY_STATE_OPEN) {
+        try {
+          client.send(message);
+        } catch (err) {
+          console.error("Failed to broadcast message:", err);
+        }
+      }
+    }
   }
 
   /**
@@ -190,7 +203,11 @@ export class BoardRoom extends DurableObject<Env> {
       position: position ?? null,
       state,
     };
-    this.broadcastAICursor();
+    this.broadcastToAll(JSON.stringify({
+      type: "ai-cursor",
+      position: this.aiCursorState.position,
+      state: this.aiCursorState.state,
+    }));
   }
 
   /**

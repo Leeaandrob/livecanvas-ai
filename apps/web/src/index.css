@@ -417,6 +417,43 @@ a:hover {
   outline: none;
 }
 
+/* Pattern suggestions preview */
+.pattern-suggestions-preview {
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-bottom: 8px;
+}
+
+.pattern-label {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  display: block;
+  margin-bottom: 6px;
+}
+
+.pattern-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pattern-tag {
+  background: var(--color-accent);
+  color: white;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.pattern-tag-secondary {
+  background: var(--color-bg-secondary);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+}
+
 /* Presence indicators */
 .presence-list {
   display: flex;
@@ -1031,4 +1068,210 @@ a:hover {
   color: var(--color-error);
   font-size: 12px;
   text-align: center;
+}
+
+/* ===== Block Type Menu ===== */
+.block-type-menu {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+  min-width: 160px;
+}
+
+.block-type-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  color: var(--color-text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  transition: background var(--transition-fast);
+  cursor: pointer;
+}
+
+.block-type-option:hover {
+  background: var(--color-bg-hover);
+}
+
+.block-type-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  color: var(--color-text-secondary);
+}
+
+.block-type-option:hover .block-type-icon {
+  color: var(--color-accent);
+}
+
+.block-type-option.sticky .block-type-icon {
+  color: #f59e0b;
+}
+
+.block-type-label {
+  flex: 1;
+}
+
+/* ===== Sticky Notes ===== */
+.sticky-note {
+  position: absolute;
+  border-radius: 4px;
+  border-width: 1px;
+  border-style: solid;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  transition: box-shadow var(--transition-fast);
+}
+
+.sticky-note:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.sticky-note.selected {
+  box-shadow: 0 0 0 2px var(--color-accent), 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.sticky-note.resizing {
+  cursor: nwse-resize;
+  user-select: none;
+}
+
+/* Sticky note header */
+.sticky-note-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.sticky-note:hover .sticky-note-header,
+.sticky-note.selected .sticky-note-header {
+  opacity: 1;
+}
+
+.sticky-note-color-btn {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+  transition: transform var(--transition-fast);
+}
+
+.sticky-note-color-btn:hover {
+  transform: scale(1.1);
+}
+
+.sticky-note-delete-btn {
+  padding: 2px;
+  color: inherit;
+  opacity: 0.5;
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
+}
+
+.sticky-note-delete-btn:hover {
+  opacity: 1;
+}
+
+/* Color picker dropdown */
+.sticky-note-color-picker {
+  position: absolute;
+  top: 32px;
+  left: 8px;
+  display: flex;
+  gap: 6px;
+  padding: 8px;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 10;
+}
+
+.color-option {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border-width: 2px;
+  border-style: solid;
+  cursor: pointer;
+  transition: transform var(--transition-fast);
+}
+
+.color-option:hover {
+  transform: scale(1.15);
+}
+
+.color-option.active {
+  box-shadow: 0 0 0 2px var(--color-accent);
+}
+
+/* Sticky note content */
+.sticky-note-content {
+  flex: 1;
+  padding: 4px 12px 12px;
+  overflow: hidden;
+}
+
+.sticky-note-textarea {
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  resize: none;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.sticky-note-text {
+  font-size: 14px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow: hidden;
+}
+
+.sticky-note-text .placeholder {
+  opacity: 0.5;
+  font-style: italic;
+}
+
+/* Sticky note resize handle */
+.sticky-note .resize-handle {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 14px;
+  height: 14px;
+  cursor: nwse-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.sticky-note:hover .resize-handle,
+.sticky-note.selected .resize-handle {
+  opacity: 0.5;
+}
+
+.sticky-note .resize-handle:hover {
+  opacity: 1;
 }

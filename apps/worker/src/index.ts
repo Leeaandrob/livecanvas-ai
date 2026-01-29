@@ -8,6 +8,7 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { BoardRoom } from "./durable-objects/BoardRoom";
 import { boardRoute } from "./routes/board";
+import { boardsRoute } from "./routes/boards";
 import { analyzeRoute } from "./routes/analyze";
 import { refactorRoute } from "./routes/refactor";
 import { generateRoute } from "./routes/generate";
@@ -20,6 +21,8 @@ export { BoardRoom };
 // Environment bindings type
 export interface Env {
   BOARD_ROOM: DurableObjectNamespace;
+  DB: D1Database;
+  KV: KVNamespace;
   ENVIRONMENT: string;
 }
 
@@ -32,13 +35,13 @@ app.use(
   cors({
     origin: (origin) => {
       // Allow localhost, local network IPs, and production
-      if (!origin) return true;
+      if (!origin) return "*";
       if (origin.includes("localhost")) return origin;
       if (origin.includes("127.0.0.1")) return origin;
       if (origin.match(/^https?:\/\/192\.168\./)) return origin;
       if (origin.match(/^https?:\/\/10\./)) return origin;
       if (origin.includes("live-canvas.pages.dev")) return origin;
-      return false;
+      return origin; // Allow for preflight requests
     },
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowHeaders: ["Content-Type", "X-Board-Id", "Upgrade", "Connection"],
@@ -59,6 +62,9 @@ app.get("/", (c) => {
 
 // WebSocket route for board collaboration
 app.route("/board", boardRoute);
+
+// Board management API
+app.route("/api/boards", boardsRoute);
 
 // AI API routes
 app.route("/api/analyze", analyzeRoute);

@@ -2,6 +2,7 @@
  * LiveCanvas Tools for Gemini Live
  *
  * Tool definitions and executor for voice-controlled diagram operations
+ * Integrated with Pattern Library for intelligent diagram generation
  */
 
 import type {
@@ -9,55 +10,81 @@ import type {
   ToolExecutionContext,
   ToolResult,
 } from "@live-canvas/protocols";
+import {
+  analyzePromptForPatterns,
+  enhancePromptWithPatterns,
+  getPatternTemplate,
+  getPatternCatalog,
+  formatPatternSuggestionsForVoice,
+} from "../pattern-assistant";
+import { getPatternById, ALL_PATTERNS } from "@live-canvas/ai-providers";
 
 /**
  * System instruction for the voice assistant
+ * Enhanced with Pattern Library knowledge
  */
-export const VOICE_ASSISTANT_SYSTEM_INSTRUCTION = `You are a helpful voice assistant for LiveCanvas, a real-time collaborative diagramming tool.
+export const VOICE_ASSISTANT_SYSTEM_INSTRUCTION = `You are an expert software architect assistant for LiveCanvas, a real-time collaborative diagramming tool.
 
-Your role is to help users create Mermaid diagrams through natural conversation.
+Your role is to help users design software systems by creating Mermaid diagrams through natural conversation. You have deep knowledge of architecture patterns.
 
-IMPORTANT: When creating diagrams, always include the Mermaid code in a code block like this:
+## ARCHITECTURE PATTERNS YOU KNOW:
+
+**Architecture Patterns:**
+- Microservices: Independent deployable services
+- Modular Monolith: Single deployment with clear modules
+- Serverless: Event-driven functions
+- Hexagonal: Ports and adapters for testability
+- Layered: N-tier separation of concerns
+
+**Data Patterns:**
+- CQRS: Separate read/write models
+- Event Sourcing: Store events, not state
+- Saga (Orchestration/Choreography): Distributed transactions
+- Outbox Pattern: Reliable event publishing
+
+**Integration Patterns:**
+- API Gateway: Single entry point
+- BFF (Backend for Frontend): Client-specific backends
+- Service Mesh: Infrastructure-level communication
+- Message Broker: Async pub/sub
+- Anti-Corruption Layer: Legacy integration
+
+**Resilience Patterns:**
+- Circuit Breaker: Fail fast
+- Bulkhead: Isolate failures
+- Retry with Backoff: Handle transient errors
+- Timeout & Fallback: Graceful degradation
+
+## CAPABILITIES:
+
+1. **suggest_patterns**: Analyze requirements and suggest relevant patterns
+2. **apply_pattern**: Create diagrams using pattern templates
+3. **create_diagram**: Generate custom Mermaid diagrams
+4. **explain_pattern**: Explain trade-offs and when to use
+
+## DIAGRAM CREATION RULES:
+
+IMPORTANT: When creating diagrams, always include the Mermaid code in a code block:
 \`\`\`mermaid
 graph TD
     A[Start] --> B[End]
 \`\`\`
 
-CRITICAL MERMAID SYNTAX RULES:
-1. Keep diagrams SIMPLE - prefer fewer nodes with clear labels
-2. Use simple node IDs (A, B, C or short names like Start, End, User)
-3. Always quote labels with special characters: A["Label with spaces"]
-4. For flowcharts: use graph TD (top-down) or graph LR (left-right)
-5. For sequence diagrams: use simple participant names without spaces
-6. Avoid complex nested structures - break into simpler diagrams if needed
-7. Don't use activate/deactivate unless necessary
-8. Keep alt/else blocks simple with just 2-3 alternatives max
+Keep diagrams SIMPLE:
+- Use clear node IDs (A, B, C or meaningful short names)
+- Quote labels with special chars: A["Label here"]
+- Prefer flowchart (graph TD/LR) for most cases
+- Use sequenceDiagram for API flows
 
-FLOWCHART EXAMPLES:
-\`\`\`mermaid
-graph TD
-    A[User Request] --> B{Valid?}
-    B -->|Yes| C[Process]
-    B -->|No| D[Error]
-    C --> E[Response]
-\`\`\`
+## KEY BEHAVIORS:
 
-SEQUENCE DIAGRAM EXAMPLE:
-\`\`\`mermaid
-sequenceDiagram
-    User->>API: Request
-    API->>DB: Query
-    DB-->>API: Data
-    API-->>User: Response
-\`\`\`
+- When user describes a system, first identify relevant patterns
+- Suggest patterns before creating complex diagrams
+- Explain trade-offs briefly (it's voice!)
+- Create simple, correct diagrams
+- Break complex systems into multiple diagrams
 
-Key behaviors:
-- Create simple, clear diagrams that render correctly
-- Keep responses brief since this is voice interaction
-- After creating a diagram, briefly describe what you created
-- If the request is complex, simplify it into a cleaner diagram
-
-Supported diagram types: flowchart, sequenceDiagram, classDiagram, stateDiagram-v2, erDiagram, pie, mindmap`;
+Supported types: flowchart, sequenceDiagram, classDiagram, stateDiagram-v2, erDiagram, C4 diagrams`;
 
 /**
  * Tool declarations for Gemini Live
@@ -160,6 +187,58 @@ export const LIVECANVAS_TOOLS: GeminiToolDeclaration[] = [
           },
         },
       },
+      {
+        name: "suggest_patterns",
+        description:
+          "Analyze a system description and suggest relevant architecture patterns. Use this when the user describes a system they want to build.",
+        parameters: {
+          type: "object",
+          properties: {
+            description: {
+              type: "string",
+              description:
+                "The system description or requirements to analyze for pattern suggestions.",
+            },
+          },
+          required: ["description"],
+        },
+      },
+      {
+        name: "apply_pattern",
+        description:
+          "Create a diagram using a specific architecture pattern template. Use this after suggesting patterns or when user asks for a specific pattern.",
+        parameters: {
+          type: "object",
+          properties: {
+            pattern_id: {
+              type: "string",
+              description:
+                "The ID of the pattern to apply (e.g., 'microservices-basic', 'circuit-breaker', 'saga-orchestration')",
+            },
+            customization: {
+              type: "string",
+              description:
+                "Optional customization instructions for the pattern template",
+            },
+          },
+          required: ["pattern_id"],
+        },
+      },
+      {
+        name: "list_patterns",
+        description:
+          "List all available architecture patterns grouped by category. Use this when user asks what patterns are available.",
+        parameters: {
+          type: "object",
+          properties: {
+            category: {
+              type: "string",
+              description:
+                "Optional category filter: 'architecture', 'data', 'integration', or 'resilience'",
+            },
+          },
+        },
+      },
     ],
   },
 ];
@@ -190,6 +269,15 @@ export async function executeToolCall(
 
     case "analyze_diagram":
       return analyzeDiagram(args, context);
+
+    case "suggest_patterns":
+      return suggestPatterns(args);
+
+    case "apply_pattern":
+      return applyPattern(args, context);
+
+    case "list_patterns":
+      return listPatterns(args);
 
     default:
       return {
@@ -507,5 +595,138 @@ function analyzeCode(code: string): {
     connectionCount,
     complexity,
     suggestions,
+  };
+}
+
+/**
+ * Suggest architecture patterns based on description
+ */
+function suggestPatterns(args: Record<string, unknown>): ToolResult {
+  const description = args.description as string;
+
+  if (!description) {
+    return {
+      success: false,
+      message: "Missing description parameter",
+    };
+  }
+
+  const suggestions = analyzePromptForPatterns(description);
+  const voiceSummary = formatPatternSuggestionsForVoice(suggestions);
+
+  const highRelevance = suggestions.filter((s) => s.relevance === "high");
+  const patternDetails = highRelevance.slice(0, 3).map((s) => ({
+    id: s.pattern.id,
+    name: s.pattern.name,
+    category: s.pattern.category,
+    reason: s.reason,
+    tradeoffs: {
+      pros: s.pattern.tradeoffs.pros.slice(0, 2),
+      cons: s.pattern.tradeoffs.cons.slice(0, 2),
+    },
+  }));
+
+  return {
+    success: true,
+    message: voiceSummary,
+    data: {
+      suggestedPatterns: patternDetails,
+      totalFound: suggestions.length,
+      highRelevanceCount: highRelevance.length,
+    },
+  };
+}
+
+/**
+ * Apply a pattern template to create a diagram
+ */
+function applyPattern(
+  args: Record<string, unknown>,
+  context: ToolExecutionContext
+): ToolResult {
+  const patternId = args.pattern_id as string;
+  const customization = args.customization as string | undefined;
+
+  if (!patternId) {
+    return {
+      success: false,
+      message: "Missing pattern_id parameter",
+    };
+  }
+
+  const pattern = getPatternById(patternId);
+  if (!pattern) {
+    return {
+      success: false,
+      message: `Pattern '${patternId}' not found. Use list_patterns to see available patterns.`,
+    };
+  }
+
+  // Get the best template for this pattern
+  const template = getPatternTemplate(pattern);
+  if (!template) {
+    return {
+      success: false,
+      message: `Pattern '${pattern.name}' has no diagram templates available.`,
+    };
+  }
+
+  try {
+    const block = context.addBlock(template);
+    context.selectBlock(block.id);
+
+    return {
+      success: true,
+      message: `Created ${pattern.name} diagram. ${customization ? "You can customize it further." : ""}`,
+      data: {
+        blockId: block.id,
+        patternName: pattern.name,
+        patternCategory: pattern.category,
+        whenToUse: pattern.whenToUse.slice(0, 2),
+        relatedPatterns: pattern.relatedPatterns,
+      },
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: `Failed to create pattern diagram: ${error instanceof Error ? error.message : "Unknown error"}`,
+    };
+  }
+}
+
+/**
+ * List available patterns
+ */
+function listPatterns(args: Record<string, unknown>): ToolResult {
+  const category = args.category as string | undefined;
+
+  const catalog = getPatternCatalog();
+
+  if (category && catalog[category as keyof typeof catalog]) {
+    const patterns = catalog[category as keyof typeof catalog];
+    return {
+      success: true,
+      message: `${category} patterns: ${patterns.join(", ")}`,
+      data: {
+        category,
+        patterns,
+        count: patterns.length,
+      },
+    };
+  }
+
+  // Return all categories
+  const summary = Object.entries(catalog)
+    .map(([cat, patterns]) => `${cat}: ${patterns.length}`)
+    .join(", ");
+
+  return {
+    success: true,
+    message: `Available patterns - ${summary}. Ask about a specific category for details.`,
+    data: {
+      categories: Object.keys(catalog),
+      catalog,
+      totalPatterns: ALL_PATTERNS.length,
+    },
   };
 }
