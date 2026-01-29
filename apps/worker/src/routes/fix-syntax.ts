@@ -83,13 +83,9 @@ fixSyntaxRoute.post("/", async (c) => {
       original: mermaid,
     });
   } catch (error) {
-    console.error("Fix syntax error:", error);
-    return c.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : "Fix syntax failed",
-      },
-      500
-    );
+    // Only log error message, not full object (may contain API keys)
+    const errorMessage = error instanceof Error ? error.message : "Fix syntax failed";
+    console.error("Fix syntax error:", errorMessage);
+    return c.json({ success: false, error: errorMessage }, 500);
   }
 });

@@ -89,10 +89,9 @@ modifyRoute.post("/", async (c) => {
 
     return createStreamingResponse(stream);
   } catch (error) {
-    console.error("Modify error:", error);
-    return c.json(
-      { error: error instanceof Error ? error.message : "Modification failed" },
-      500
-    );
+    // Only log error message, not full object (may contain API keys)
+    const errorMessage = error instanceof Error ? error.message : "Modification failed";
+    console.error("Modify error:", errorMessage);
+    return c.json({ error: errorMessage }, 500);
   }
 });

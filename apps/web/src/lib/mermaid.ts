@@ -18,7 +18,7 @@ export function initMermaid(): void {
   mermaid.initialize({
     startOnLoad: false,
     theme: "dark",
-    securityLevel: "loose", // Required for click handlers
+    securityLevel: "strict", // Prevents XSS - click handlers disabled
     flowchart: {
       useMaxWidth: true,
       htmlLabels: true,

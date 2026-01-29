@@ -84,10 +84,9 @@ refactorRoute.post("/", async (c) => {
 
     return createStreamingResponse(stream);
   } catch (error) {
-    console.error("Refactor error:", error);
-    return c.json(
-      { error: error instanceof Error ? error.message : "Refactor failed" },
-      500
-    );
+    // Only log error message, not full object (may contain API keys)
+    const errorMessage = error instanceof Error ? error.message : "Refactor failed";
+    console.error("Refactor error:", errorMessage);
+    return c.json({ error: errorMessage }, 500);
   }
 });

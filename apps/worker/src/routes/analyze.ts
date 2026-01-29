@@ -85,10 +85,9 @@ analyzeRoute.post("/", async (c) => {
 
     return createStreamingResponse(stream);
   } catch (error) {
-    console.error("Analyze error:", error);
-    return c.json(
-      { error: error instanceof Error ? error.message : "Analysis failed" },
-      500
-    );
+    // Only log error message, not full object (may contain API keys)
+    const errorMessage = error instanceof Error ? error.message : "Analysis failed";
+    console.error("Analyze error:", errorMessage);
+    return c.json({ error: errorMessage }, 500);
   }
 });

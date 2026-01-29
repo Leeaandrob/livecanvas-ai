@@ -84,10 +84,9 @@ generateRoute.post("/", async (c) => {
 
     return createStreamingResponse(stream);
   } catch (error) {
-    console.error("Generate error:", error);
-    return c.json(
-      { error: error instanceof Error ? error.message : "Generation failed" },
-      500
-    );
+    // Only log error message, not full object (may contain API keys)
+    const errorMessage = error instanceof Error ? error.message : "Generation failed";
+    console.error("Generate error:", errorMessage);
+    return c.json({ error: errorMessage }, 500);
   }
 });

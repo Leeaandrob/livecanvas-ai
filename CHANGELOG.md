@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] - 2026-01-29
+
+### Security
+
+- **CRITICAL**: Added authorization check to PATCH `/api/boards/:id` endpoint
+- **CRITICAL**: Changed Mermaid `securityLevel` from "loose" to "strict" to prevent XSS
+- **CRITICAL**: Fixed CORS to reject unknown origins instead of returning any origin
+- **HIGH**: Sanitized error logging to prevent API keys from being exposed in logs
+
+### Fixed
+
+- Board update endpoint now properly verifies user ownership before allowing changes
+- AI route error handlers no longer log full error objects that may contain sensitive data
+
 ## [1.1.0] - 2026-01-29
 
 ### Added

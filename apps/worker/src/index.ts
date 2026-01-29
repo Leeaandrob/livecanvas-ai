@@ -41,7 +41,8 @@ app.use(
       if (origin.match(/^https?:\/\/192\.168\./)) return origin;
       if (origin.match(/^https?:\/\/10\./)) return origin;
       if (origin.includes("live-canvas.pages.dev")) return origin;
-      return origin; // Allow for preflight requests
+      // Reject unknown origins
+      return null;
     },
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowHeaders: ["Content-Type", "X-Board-Id", "Upgrade", "Connection"],

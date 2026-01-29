@@ -119,6 +119,11 @@ boardsRoute.patch("/:id", async (c) => {
       return c.json({ error: "Board not found" }, 404);
     }
 
+    // Authorization check: only owner can update
+    if (board.created_by !== userId && board.created_by !== "anonymous") {
+      return c.json({ error: "Not authorized" }, 403);
+    }
+
     // Build update query dynamically
     const updates: string[] = [];
     const values: (string | number)[] = [];
